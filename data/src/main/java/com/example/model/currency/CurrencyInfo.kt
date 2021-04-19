@@ -17,7 +17,7 @@ class CurrencyInfo : ICurrencyInfo {
         this.iCurrencyCallBack = iCurrencyCallBack
         val apiService = ServiceBuilder.builder.create(ICurrencyInfoService::class.java)
         val currencyObservable = apiService.getCurrencyListInfo()
-        currencyObservable.subscribeOn(io()).observeOn(AndroidSchedulers.mainThread()).subscribe(this::handleResults, this::handleError)
+        currencyObservable.subscribeOn(io()).observeOn(AndroidSchedulers.mainThread()).subscribe(::handleResults, ::handleError)
     }
 
     private fun handleResults(currencyDTO: CurrencyDTO) {

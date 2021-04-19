@@ -1,6 +1,5 @@
 package com.example.currencyconverter.ui
 
-import android.content.Context
 import android.content.IntentFilter
 import android.content.SharedPreferences
 import androidx.appcompat.app.AppCompatActivity
@@ -11,24 +10,15 @@ import androidx.appcompat.app.AlertDialog
 import androidx.core.widget.doOnTextChanged
 import androidx.lifecycle.Observer
 import androidx.lifecycle.ViewModelProvider
-import butterknife.BindView
-import butterknife.ButterKnife
 import com.example.currencyconverter.R
+import kotlinx.android.synthetic.main.activity_currency.*
 import com.example.currencyconverter.viewModel.CurrencyViewModel
 import com.example.currencyconverter.util.INetworkChange
 import com.example.currencyconverter.util.NetworkChangeReceiver
 import com.google.android.material.snackbar.Snackbar
-import com.toptoche.searchablespinnerlibrary.SearchableSpinner
 
 class CurrencyActivity : AppCompatActivity(), INetworkChange {
 
-    @BindView(R.id.currencyFrom) lateinit var currencyFrom: SearchableSpinner
-    @BindView(R.id.currencyTo) lateinit var currencyTo: SearchableSpinner
-    @BindView(R.id.currSum) lateinit var currSum: EditText
-    @BindView(R.id.recalcSum) lateinit var recalcSum: TextView
-    @BindView(R.id.currConvert) lateinit var currConvert: TextView
-    @BindView(R.id.source) lateinit var source: TextView
-    @BindView(R.id.progressCircular) lateinit var progressCircular: ProgressBar
     private val currencyList = arrayListOf("RUB", "USD", "EUR", "GBP", "CHF", "CNY")
     lateinit var pref : SharedPreferences
     private val APP_PREFERENCES: String = "MAIN"
@@ -40,13 +30,14 @@ class CurrencyActivity : AppCompatActivity(), INetworkChange {
     private lateinit var eventReceiver: NetworkChangeReceiver
     private lateinit var intentFilter: IntentFilter
 
-    private val currencyViewModel by lazy { ViewModelProvider(this).get(CurrencyViewModel::class.java) }
+    private val currencyViewModel by lazy { ViewModelProvider(this)[CurrencyViewModel::class.java] }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_currency)
-        ButterKnife.bind(this)
-        pref = getSharedPreferences(APP_PREFERENCES, Context.MODE_PRIVATE)
+
+        initView()
+        pref = getSharedPreferences(APP_PREFERENCES, MODE_PRIVATE)
 
         // dropDown Currency From
         val adapterFrom = ArrayAdapter( this, android.R.layout.simple_list_item_1, currencyList)
@@ -64,6 +55,8 @@ class CurrencyActivity : AppCompatActivity(), INetworkChange {
                 firstOpenFromFlag = true
             }
         }
+
+        //RxAdapterView.itemSelections(currencyFrom).observeOn(AndroidSchedulers.mainThread()).compose {  }
 
         // dropDown Currency To
         val adapterTo = ArrayAdapter( this, android.R.layout.simple_list_item_1, currencyList)
@@ -92,9 +85,11 @@ class CurrencyActivity : AppCompatActivity(), INetworkChange {
             currSum.setText(pref.getFloat(SUM,0f).toString())
         }
 
-        currSum.doOnTextChanged { charSequence: CharSequence?, i: Int, i1: Int, i2: Int ->
+        /*currSum.doOnTextChanged { charSequence: CharSequence?, i: Int, i1: Int, i2: Int ->
             recalcCurrency()
-        }
+        }*/
+
+        //RxTextView.textChanges(currSum).debounce(1, TimeUnit.SECONDS).observeOn(AndroidSchedulers.mainThread()).compose(recalcCurrency())
 
         recalcCurrency()
 
@@ -106,30 +101,44 @@ class CurrencyActivity : AppCompatActivity(), INetworkChange {
             recalcSum.text = list.summ.toString()
             currConvert.text = list.curs.toString()
             source.text = list.source
-            progressCircular.visibility = View.GONE
+            stopLoader()
         })
 
         currencyViewModel.getError().observe(this, Observer {
             showAlert(it)
         })
+
+        /*val checkSourceCurrency = ObservableTransformer<String, String>{ observable ->
+
+        }*/
+    }
+
+    private fun startLoader(){
+        progressCircular.visibility = View.VISIBLE
+    }
+
+    private fun stopLoader(){
+        progressCircular.visibility = View.GONE
+    }
+
+    private fun initView() {
+        currSum.doOnTextChanged { text, start, before, count ->
+            recalcCurrency()
+        }
     }
 
     private fun recalcCurrency(){
         if(currSum.text.isEmpty() || currSum.text.last() == '.' || (currSum.text.toString().toFloat()) < 0f){
             return
         }
-        progressCircular.visibility = View.VISIBLE
+        startLoader()
         currencyViewModel.checkSourceCurrency(currSum.text.toString().toFloat(), currencyFrom.selectedItem.toString(), currencyTo.selectedItem.toString())
     }
 
     override fun provideSnackBar(): Snackbar = Snackbar.make(findViewById(R.id.mainPageLayout), "", Snackbar.LENGTH_LONG)
 
-    override fun onResume() {
-        super.onResume()
-        registerReceiver(eventReceiver, intentFilter)
-    }
-
     private fun showAlert(message: String?) {
+
         val builder = AlertDialog.Builder(this)
         builder.setTitle("Ошибка")
         builder.setMessage(message)
@@ -137,6 +146,11 @@ class CurrencyActivity : AppCompatActivity(), INetworkChange {
         val dialog: AlertDialog = builder.create()
         dialog.show()
         progressCircular.visibility = View.GONE
+    }
+
+    override fun onResume() {
+        super.onResume()
+        registerReceiver(eventReceiver, intentFilter)
     }
 
     override fun onStop() {
